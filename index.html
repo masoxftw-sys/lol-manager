@@ -1,0 +1,2017 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LOL ESPORT MANAGER — LEC Edition</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Barlow+Condensed:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+<!-- ====== FIREBASE CONFIG — REMPLACE PAR TES PROPRES CLÉS ====== -->
+<!-- Créer un projet sur https://console.firebase.google.com -->
+<!-- Voir GUIDE-FIREBASE.md pour les instructions détaillées -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, getDocs, query, orderBy, limit, serverTimestamp }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  // ========================================================
+  // 🔴 REMPLACE CES VALEURS PAR CELLES DE TON PROJET FIREBASE
+  // ========================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyDySm5K1J6Uh2T5fHrrsSCbG6i4eWLdoGw",
+  authDomain: "lol-esport-manager-1db1f.firebaseapp.com",
+  projectId: "lol-esport-manager-1db1f",
+  storageBucket: "lol-esport-manager-1db1f.firebasestorage.app",
+  messagingSenderId: "80169292401",
+  appId: "1:80169292401:web:4e2ed133e62cce8b81c1d0",
+  measurementId: "G-0BYWB1TF6H"
+};
+  // ========================================================
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // Expose globally
+  window._fb = { auth, db, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+    signOut, onAuthStateChanged, doc, setDoc, getDoc, updateDoc, collection,
+    getDocs, query, orderBy, limit, serverTimestamp };
+
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
+
+<style>
+:root {
+  --c0: #04080E;
+  --c1: #070F1A;
+  --c2: #0B1929;
+  --c3: #112237;
+  --border: #1C3A5E;
+  --border-hi: #2C5A8E;
+  --gold: #C8992A;
+  --gold2: #E8BF60;
+  --gold-dim: #5C4010;
+  --blue: #00C8E8;
+  --blue2: #0096B8;
+  --red: #E82040;
+  --green: #10C870;
+  --purple: #8858F8;
+  --text: #B8A888;
+  --text2: #789898;
+  --text3: #485868;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--c0);
+  color: var(--text);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* ─── HEXAGONAL GRID BG ─── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(0,100,160,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 90%, rgba(200,153,42,0.05) 0%, transparent 60%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='52'%3E%3Cpolygon points='30,0 60,15 60,37 30,52 0,37 0,15' fill='none' stroke='rgba(28,58,94,0.3)' stroke-width='0.5'/%3E%3C/svg%3E");
+  background-size: auto, auto, 60px 52px;
+  pointer-events: none; z-index: 0;
+}
+
+/* ─── FIREBASE CONFIG BANNER ─── */
+#config-banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  background: linear-gradient(90deg, rgba(232,32,64,0.9), rgba(180,20,50,0.9));
+  padding: 10px 20px;
+  display: flex; align-items: center; gap: 12px;
+  backdrop-filter: blur(4px);
+  border-bottom: 1px solid rgba(232,32,64,0.5);
+}
+#config-banner .cb-icon { font-size: 20px; }
+#config-banner p { font-size: 13px; color: #fff; flex: 1; }
+#config-banner a { color: #FFD080; font-weight: 700; text-decoration: underline; cursor: pointer; }
+#config-banner .cb-close { background: rgba(255,255,255,0.2); border: none; color: #fff; width: 24px; height: 24px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+#config-banner.hidden { display: none; }
+
+/* ─── LOADING SCREEN ─── */
+#loading-screen {
+  position: fixed; inset: 0; z-index: 900;
+  background: var(--c0);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 20px;
+}
+.loading-logo { font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 900; color: var(--gold); letter-spacing: 6px; animation: glow 2s ease infinite; }
+.loading-sub { font-family: 'Share Tech Mono'; font-size: 12px; color: var(--blue); letter-spacing: 4px; }
+.loading-bar-wrap { width: 240px; height: 3px; background: rgba(255,255,255,0.06); }
+.loading-bar { height: 100%; background: linear-gradient(90deg, var(--gold), var(--blue)); animation: loadAnim 1.5s ease-out forwards; }
+@keyframes loadAnim { from { width: 0; } to { width: 100%; } }
+
+/* ─── AUTH SCREEN ─── */
+#auth-screen {
+  position: fixed; inset: 0; z-index: 800;
+  display: none;
+  align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at 30% 30%, rgba(0,100,160,0.12), transparent 60%),
+              radial-gradient(ellipse at 70% 70%, rgba(200,153,42,0.08), transparent 60%), var(--c0);
+}
+
+.auth-wrap {
+  width: 460px; position: relative;
+}
+
+.auth-deco {
+  position: absolute;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 110px; font-weight: 900;
+  color: rgba(200,153,42,0.04);
+  top: -40px; left: -20px;
+  letter-spacing: -5px;
+  user-select: none;
+  pointer-events: none;
+}
+
+.auth-box {
+  background: linear-gradient(160deg, var(--c2) 0%, var(--c1) 100%);
+  border: 1px solid var(--border);
+  padding: 44px 40px;
+  position: relative;
+  animation: fadeUp 0.5s ease both;
+}
+
+.auth-box::before, .auth-box::after {
+  content: ''; position: absolute; width: 14px; height: 14px;
+  border-color: var(--gold); border-style: solid;
+}
+.auth-box::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+.auth-box::after  { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+
+.auth-logo { text-align: center; margin-bottom: 32px; }
+.auth-logo .wordmark {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 24px; font-weight: 900;
+  color: var(--gold);
+  letter-spacing: 5px;
+  text-shadow: 0 0 30px rgba(200,153,42,0.4);
+}
+.auth-logo .sub {
+  font-family: 'Share Tech Mono';
+  font-size: 10px; letter-spacing: 5px;
+  color: var(--blue); margin-top: 4px;
+}
+
+.auth-tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 28px; }
+.auth-tab {
+  flex: 1; padding: 10px 0; background: none; border: none; cursor: pointer;
+  font-family: 'Orbitron', sans-serif; font-size: 10px; letter-spacing: 2px;
+  color: var(--text3); transition: .2s; border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.auth-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+.field-group { margin-bottom: 16px; }
+.field-group label { display: block; font-family: 'Share Tech Mono'; font-size: 10px; letter-spacing: 2px; color: var(--text2); margin-bottom: 6px; }
+.field-group input {
+  width: 100%; padding: 11px 14px;
+  background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+  color: var(--text); font-family: 'Barlow Condensed', sans-serif; font-size: 15px;
+  outline: none; transition: .2s;
+}
+.field-group input:focus { border-color: var(--gold-dim); background: rgba(200,153,42,0.04); }
+
+.grid-2f { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.btn-submit {
+  width: 100%; padding: 13px;
+  background: linear-gradient(90deg, var(--gold-dim), var(--gold));
+  border: none; cursor: pointer; margin-top: 8px;
+  font-family: 'Orbitron', sans-serif; font-size: 11px; letter-spacing: 3px; font-weight: 700;
+  color: var(--c0); transition: .2s;
+}
+.btn-submit:hover { opacity: .85; transform: translateY(-1px); }
+.btn-submit:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+.auth-switch { text-align: center; margin-top: 14px; font-size: 13px; color: var(--text3); }
+.auth-switch span { color: var(--gold); cursor: pointer; }
+.auth-switch span:hover { text-decoration: underline; }
+
+.auth-error { background: rgba(232,32,64,0.1); border: 1px solid rgba(232,32,64,0.3); padding: 10px 14px; color: var(--red); font-size: 13px; margin-bottom: 16px; display: none; }
+.auth-error.show { display: block; }
+
+/* ─── MAIN APP ─── */
+#app { display: none; position: relative; z-index: 1; }
+
+/* TOP BAR */
+.topbar {
+  height: 54px; position: sticky; top: 0; z-index: 60;
+  background: linear-gradient(90deg, rgba(7,15,26,0.97), rgba(11,25,41,0.97));
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 18px; gap: 16px;
+  backdrop-filter: blur(12px);
+}
+.tb-logo { font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 900; color: var(--gold); letter-spacing: 4px; white-space: nowrap; }
+.tb-sep { width: 1px; height: 24px; background: var(--border); }
+.tb-club { font-size: 13px; color: var(--blue); letter-spacing: 1px; white-space: nowrap; }
+
+.tb-metrics { display: flex; gap: 18px; align-items: center; margin-left: auto; }
+.tb-metric { text-align: center; }
+.tb-metric .lbl { font-family: 'Share Tech Mono'; font-size: 8px; letter-spacing: 2px; color: var(--text3); }
+.tb-metric .val { font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 700; color: var(--gold); line-height: 1.2; }
+.tb-metric .val.c-blue { color: var(--blue); }
+.tb-metric .val.c-green { color: var(--green); }
+
+.tb-user {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  padding: 6px 12px; border: 1px solid var(--border); transition: .2s;
+}
+.tb-user:hover { border-color: var(--gold-dim); background: rgba(200,153,42,0.05); }
+.tb-avatar {
+  width: 30px; height: 30px; background: var(--gold-dim);
+  border: 1px solid var(--gold); display: flex; align-items: center; justify-content: center;
+  font-family: 'Orbitron', sans-serif; font-size: 12px; font-weight: 900; color: var(--gold);
+}
+.tb-uname { font-size: 12px; color: var(--text2); max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* SIDEBAR */
+.sidebar {
+  width: 192px; position: fixed; top: 54px; left: 0; bottom: 0; z-index: 50;
+  background: linear-gradient(180deg, var(--c1), var(--c0));
+  border-right: 1px solid var(--border);
+  overflow-y: auto; padding: 12px 0;
+}
+.nav-sect { padding: 10px 16px 4px; font-family: 'Share Tech Mono'; font-size: 9px; letter-spacing: 3px; color: var(--text3); }
+.nav-link {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px; cursor: pointer; transition: .15s;
+  color: var(--text3); font-size: 13px; font-weight: 600; letter-spacing: 0.5px;
+  position: relative; border-left: 2px solid transparent;
+}
+.nav-link:hover { color: var(--text); background: rgba(255,255,255,0.02); }
+.nav-link.active { color: var(--gold); background: rgba(200,153,42,0.06); border-left-color: var(--gold); }
+.nav-link .ni { font-size: 15px; width: 18px; text-align: center; }
+.nav-badge { margin-left: auto; font-family: 'Share Tech Mono'; font-size: 9px; padding: 1px 5px; background: var(--red); color: #fff; }
+
+/* CONTENT */
+.content { margin-left: 192px; padding: 24px; min-height: calc(100vh - 54px); }
+
+/* PAGES */
+.page { display: none; animation: fadeUp 0.3s ease both; }
+.page.active { display: block; }
+
+/* PAGE HEADER */
+.ph { margin-bottom: 22px; display: flex; align-items: flex-end; gap: 16px; }
+.ph h2 { font-family: 'Orbitron', sans-serif; font-size: 20px; font-weight: 700; color: var(--gold); letter-spacing: 3px; }
+.ph .ph-sub { font-size: 13px; color: var(--text2); margin-bottom: 2px; }
+.ph-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+/* PANELS */
+.panel {
+  background: linear-gradient(140deg, var(--c2) 0%, var(--c1) 100%);
+  border: 1px solid var(--border);
+  position: relative; overflow: hidden;
+}
+.panel::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, var(--gold-dim), transparent 60%);
+}
+.panel-body { padding: 18px 20px; }
+.panel-title {
+  padding: 12px 20px; border-bottom: 1px solid var(--border);
+  font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 700;
+  letter-spacing: 2px; color: var(--gold);
+  display: flex; align-items: center; gap: 8px;
+}
+
+/* GRIDS */
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.g3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+.g4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
+.g5 { display: grid; grid-template-columns: repeat(5,1fr); gap: 12px; }
+
+/* STAT CARDS */
+.kpi {
+  background: linear-gradient(140deg, var(--c3), var(--c1));
+  border: 1px solid var(--border); padding: 18px 20px;
+  position: relative; overflow: hidden;
+}
+.kpi .k-val { font-family: 'Orbitron', sans-serif; font-size: 30px; font-weight: 900; color: var(--gold); }
+.kpi .k-lbl { font-family: 'Share Tech Mono'; font-size: 10px; letter-spacing: 2px; color: var(--text3); margin-top: 4px; }
+.kpi .k-delta { font-size: 12px; color: var(--green); margin-top: 2px; }
+.kpi::before { content: ''; position: absolute; bottom: -20px; right: -20px; width: 80px; height: 80px; border-radius: 50%; background: rgba(200,153,42,0.04); }
+
+/* PLAYER CARD */
+.pcard {
+  background: linear-gradient(150deg, var(--c2), var(--c0));
+  border: 1px solid var(--border);
+  padding: 16px; cursor: pointer; transition: .2s;
+  position: relative;
+}
+.pcard:hover { border-color: var(--gold-dim); box-shadow: 0 6px 20px rgba(0,0,0,0.5); transform: translateY(-2px); }
+.pcard::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--gold-dim), transparent); opacity: 0; transition: .2s; }
+.pcard:hover::before { opacity: 1; }
+
+.pc-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+.pc-badge {
+  width: 46px; height: 46px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 900;
+  border: 1px solid;
+}
+.pc-info { flex: 1; min-width: 0; }
+.pc-name { font-family: 'Orbitron', sans-serif; font-size: 12px; font-weight: 700; color: var(--gold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pc-role { font-size: 11px; font-weight: 600; letter-spacing: 1px; margin-top: 2px; }
+.pc-meta { font-size: 11px; color: var(--text3); margin-top: 1px; font-family: 'Share Tech Mono'; }
+.pc-ovr { font-family: 'Orbitron', sans-serif; font-size: 26px; font-weight: 900; color: var(--gold); text-align: right; flex-shrink: 0; }
+.pc-ovr .pc-pot { font-size: 10px; text-align: center; font-family: 'Share Tech Mono'; color: var(--text3); margin-top: 2px; }
+
+/* SKILL BARS */
+.sb { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+.sb-name { width: 72px; font-family: 'Share Tech Mono'; font-size: 10px; color: var(--text3); flex-shrink: 0; }
+.sb-track { flex: 1; height: 4px; background: rgba(255,255,255,0.05); position: relative; }
+.sb-fill { height: 100%; transition: width 0.8s ease; }
+.sb-val { width: 24px; font-family: 'Share Tech Mono'; font-size: 10px; text-align: right; color: var(--text2); flex-shrink: 0; }
+
+/* ROLE STYLING */
+.r-TOP  { color: #5BE7FF; } .rb-TOP  { background: rgba(91,231,255,0.08); border-color: rgba(91,231,255,0.2); }
+.r-JGL  { color: #5BFF9A; } .rb-JGL  { background: rgba(91,255,154,0.08); border-color: rgba(91,255,154,0.2); }
+.r-MID  { color: #C85BFF; } .rb-MID  { background: rgba(200,91,255,0.08); border-color: rgba(200,91,255,0.2); }
+.r-BOT  { color: #FFB85B; } .rb-BOT  { background: rgba(255,184,91,0.08); border-color: rgba(255,184,91,0.2); }
+.r-SUP  { color: #5B8FFF; } .rb-SUP  { background: rgba(91,143,255,0.08); border-color: rgba(91,143,255,0.2); }
+
+/* MATCH CARD */
+.mc {
+  background: var(--c2); border: 1px solid var(--border);
+  display: flex; align-items: center; padding: 12px 16px; gap: 12px; margin-bottom: 6px;
+}
+.mc-team { flex: 1; font-family: 'Orbitron', sans-serif; font-size: 12px; font-weight: 700; }
+.mc-team.right { text-align: right; }
+.mc-score { font-family: 'Orbitron', sans-serif; font-size: 20px; font-weight: 900; min-width: 70px; text-align: center; }
+.mc-badge { font-family: 'Share Tech Mono'; font-size: 10px; padding: 2px 8px; border: 1px solid; }
+.mc-badge.w { color: var(--green); border-color: rgba(16,200,112,0.3); background: rgba(16,200,112,0.06); }
+.mc-badge.l { color: var(--red); border-color: rgba(232,32,64,0.3); background: rgba(232,32,64,0.06); }
+
+/* BUTTONS */
+.btn { padding: 9px 16px; border: 1px solid; cursor: pointer; background: none; font-family: 'Orbitron', sans-serif; font-size: 10px; letter-spacing: 2px; font-weight: 700; transition: .15s; display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover { opacity: .8; }
+.btn:disabled { opacity: .3; cursor: not-allowed; }
+.btn-gold { border-color: var(--gold-dim); color: var(--gold); }
+.btn-gold:hover:not(:disabled) { background: rgba(200,153,42,0.1); }
+.btn-blue { border-color: rgba(0,200,232,0.4); color: var(--blue); }
+.btn-blue:hover:not(:disabled) { background: rgba(0,200,232,0.08); }
+.btn-green { border-color: rgba(16,200,112,0.4); color: var(--green); }
+.btn-green:hover:not(:disabled) { background: rgba(16,200,112,0.08); }
+.btn-red { border-color: rgba(232,32,64,0.4); color: var(--red); }
+.btn-red:hover:not(:disabled) { background: rgba(232,32,64,0.08); }
+.btn-solid { background: linear-gradient(90deg, var(--gold-dim), var(--gold)); border-color: transparent; color: var(--c0); }
+
+/* BADGE */
+.badge { display: inline-flex; align-items: center; padding: 2px 7px; font-family: 'Share Tech Mono'; font-size: 10px; border: 1px solid; border-radius: 1px; }
+.badge-gold { color: var(--gold); border-color: var(--gold-dim); background: rgba(200,153,42,0.08); }
+.badge-blue { color: var(--blue); border-color: rgba(0,200,232,0.3); background: rgba(0,200,232,0.06); }
+.badge-green { color: var(--green); border-color: rgba(16,200,112,0.3); background: rgba(16,200,112,0.06); }
+.badge-red { color: var(--red); border-color: rgba(232,32,64,0.3); background: rgba(232,32,64,0.06); }
+.badge-purple { color: var(--purple); border-color: rgba(136,88,248,0.3); background: rgba(136,88,248,0.06); }
+
+/* TABLE */
+.tbl { width: 100%; border-collapse: collapse; }
+.tbl th { padding: 9px 14px; font-family: 'Share Tech Mono'; font-size: 9px; letter-spacing: 2px; color: var(--text3); text-align: left; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2); white-space: nowrap; }
+.tbl td { padding: 11px 14px; border-bottom: 1px solid rgba(28,58,94,0.3); font-size: 13px; }
+.tbl tr:hover td { background: rgba(255,255,255,0.015); }
+
+/* LADDER */
+.ld-row { display: flex; align-items: center; gap: 12px; padding: 11px 16px; border-bottom: 1px solid rgba(28,58,94,0.3); transition: .15s; }
+.ld-row:hover { background: rgba(255,255,255,0.015); }
+.ld-rank { font-family: 'Orbitron', sans-serif; font-size: 16px; font-weight: 900; width: 32px; text-align: center; }
+.ld-me { background: rgba(200,153,42,0.05); border-left: 2px solid var(--gold); }
+
+/* TRAIN */
+.train-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid rgba(28,58,94,0.3); }
+select.train-sel {
+  background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: var(--text);
+  padding: 7px 12px; font-family: 'Barlow Condensed', sans-serif; font-size: 13px; outline: none;
+  cursor: pointer; transition: .15s;
+}
+select.train-sel:focus { border-color: var(--gold-dim); }
+
+/* TRANSFER CARD */
+.tcard { border: 1px solid var(--border); background: var(--c2); padding: 14px; transition: .2s; cursor: pointer; margin-bottom: 8px; }
+.tcard:hover { border-color: var(--border-hi); }
+
+/* SPONSOR CARD */
+.spcard { border: 1px solid var(--border); background: var(--c2); padding: 16px; }
+.spcard.signed { border-color: rgba(16,200,112,0.3); background: rgba(16,200,112,0.03); }
+
+/* SCOUT CARD — ERL */
+.scout-card { border: 1px solid var(--border); background: var(--c1); padding: 14px; transition: .2s; }
+.scout-card:hover { border-color: var(--purple); }
+.scout-card .sc-tag { font-family: 'Share Tech Mono'; font-size: 10px; padding: 2px 6px; background: rgba(136,88,248,0.1); border: 1px solid rgba(136,88,248,0.3); color: var(--purple); }
+
+/* SIM OVERLAY */
+.sim-ov {
+  position: fixed; inset: 0; z-index: 900;
+  background: rgba(0,0,0,0.92);
+  display: none; align-items: center; justify-content: center;
+  backdrop-filter: blur(8px);
+}
+.sim-ov.open { display: flex; }
+.sim-arena { width: 680px; max-width: 96vw; }
+.sim-title { font-family: 'Orbitron', sans-serif; font-size: 11px; letter-spacing: 4px; color: var(--text2); text-align: center; margin-bottom: 8px; }
+.sim-teams { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.sim-tname { font-family: 'Orbitron', sans-serif; font-size: 16px; font-weight: 900; max-width: 200px; }
+.sim-score { font-family: 'Orbitron', sans-serif; font-size: 64px; font-weight: 900; color: var(--gold); text-align: center; text-shadow: 0 0 30px rgba(200,153,42,0.4); line-height: 1; }
+.sim-timer { font-family: 'Share Tech Mono'; font-size: 14px; color: var(--blue); text-align: center; margin-top: 6px; margin-bottom: 16px; letter-spacing: 3px; }
+.sim-log { height: 180px; overflow-y: auto; background: rgba(0,0,0,0.5); border: 1px solid var(--border); padding: 10px 14px; }
+.sim-log .le { padding: 3px 0; border-bottom: 1px solid rgba(28,58,94,0.2); font-family: 'Share Tech Mono'; font-size: 11px; color: var(--text3); }
+.sim-log .le.hi-gold { color: var(--gold); }
+.sim-log .le.hi-blue { color: var(--blue); }
+.sim-log .le.hi-green { color: var(--green); }
+
+/* MODAL */
+.modal-ov { position: fixed; inset: 0; z-index: 800; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+.modal-ov.open { display: flex; }
+.modal { background: var(--c1); border: 1px solid var(--border); padding: 28px; max-width: 560px; width: 95vw; max-height: 88vh; overflow-y: auto; position: relative; animation: fadeUp .3s ease; }
+.modal::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--gold-dim), transparent); }
+.modal-close { position: absolute; top: 12px; right: 12px; background: none; border: none; color: var(--text3); font-size: 16px; cursor: pointer; }
+.modal-close:hover { color: var(--gold); }
+
+/* NOTIF */
+#notifs { position: fixed; top: 66px; right: 16px; z-index: 1000; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+.notif {
+  padding: 11px 16px; background: rgba(11,25,41,0.98); border: 1px solid var(--border);
+  border-left: 3px solid var(--gold); font-size: 13px; color: var(--text);
+  max-width: 280px; animation: slideIn .3s ease, fadeOut .4s ease 2.8s both;
+  pointer-events: none;
+}
+.notif.s { border-left-color: var(--green); }
+.notif.e { border-left-color: var(--red); }
+.notif.i { border-left-color: var(--blue); }
+
+/* MISC */
+hr.div { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+.mono { font-family: 'Share Tech Mono'; }
+.orb { font-family: 'Orbitron', sans-serif; }
+.c-gold { color: var(--gold); }
+.c-blue { color: var(--blue); }
+.c-green { color: var(--green); }
+.c-red { color: var(--red); }
+.c-purple { color: var(--purple); }
+.c-dim { color: var(--text3); }
+.fw-7 { font-weight: 700; }
+.fs-11 { font-size: 11px; }
+.fs-12 { font-size: 12px; }
+.fs-13 { font-size: 13px; }
+.mt-8 { margin-top: 8px; }
+.mt-12 { margin-top: 12px; }
+.mt-16 { margin-top: 16px; }
+.mt-20 { margin-top: 20px; }
+.mb-8 { margin-bottom: 8px; }
+.mb-12 { margin-bottom: 12px; }
+.mb-16 { margin-bottom: 16px; }
+.flex { display: flex; }
+.fc { display: flex; align-items: center; }
+.gap-8 { gap: 8px; }
+.gap-12 { gap: 12px; }
+.gap-16 { gap: 16px; }
+.f1 { flex: 1; }
+.ml-a { margin-left: auto; }
+.text-right { text-align: right; }
+
+/* CHAMP TABLE */
+.ct-row { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid rgba(28,58,94,0.3); transition: .15s; }
+.ct-row:hover { background: rgba(255,255,255,0.015); }
+.ct-row.me { background: rgba(200,153,42,0.05); border-left: 2px solid var(--gold); }
+.ct-pos { font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 900; width: 28px; text-align: center; }
+
+/* PROGRESS */
+.prog { height: 6px; background: rgba(255,255,255,0.05); }
+.prog-fill { height: 100%; transition: width 1s ease; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--c0); }
+::-webkit-scrollbar-thumb { background: var(--border); }
+
+/* Animations */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideIn { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+@keyframes glow { 0%,100% { text-shadow: 0 0 20px rgba(200,153,42,0.3); } 50% { text-shadow: 0 0 40px rgba(200,153,42,0.7); } }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+.anim-glow { animation: glow 2s ease infinite; }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 900px) {
+  .sidebar { display: none; }
+  .content { margin-left: 0; }
+  .g4 { grid-template-columns: 1fr 1fr; }
+  .g3 { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- CONFIG BANNER -->
+<div id="config-banner">
+  <span class="cb-icon">⚠️</span>
+  <p>Firebase non configuré. <a onclick="showFirebaseGuide()">Suis le guide d'installation</a> pour activer les comptes en ligne.</p>
+  <button class="cb-close" onclick="document.getElementById('config-banner').classList.add('hidden')">✕</button>
+</div>
+
+<!-- LOADING -->
+<div id="loading-screen">
+  <div class="loading-logo anim-glow">⚡ LOL MANAGER</div>
+  <div class="loading-sub">LEC EDITION · 2026</div>
+  <div class="loading-bar-wrap"><div class="loading-bar"></div></div>
+</div>
+
+<!-- NOTIFICATIONS -->
+<div id="notifs"></div>
+
+<!-- AUTH SCREEN -->
+<div id="auth-screen">
+  <div class="auth-wrap">
+    <div class="auth-deco">LEC</div>
+    <div class="auth-box">
+      <div class="auth-logo">
+        <div class="wordmark anim-glow">⚡ LOL MANAGER</div>
+        <div class="sub">LEAGUE · ESPORT · STRATEGY</div>
+      </div>
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">CONNEXION</button>
+        <button class="auth-tab" id="tab-register" onclick="switchTab('register')">INSCRIPTION</button>
+      </div>
+      <div id="auth-error" class="auth-error"></div>
+
+      <!-- LOGIN -->
+      <div id="form-login">
+        <div class="field-group"><label>EMAIL</label><input type="email" id="l-email" placeholder="manager@email.com" /></div>
+        <div class="field-group"><label>MOT DE PASSE</label><input type="password" id="l-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()" /></div>
+        <button class="btn-submit" onclick="doLogin()" id="btn-login">SE CONNECTER</button>
+        <div class="auth-switch">Pas de compte ? <span onclick="switchTab('register')">Créer mon équipe →</span></div>
+      </div>
+
+      <!-- REGISTER -->
+      <div id="form-register" style="display:none">
+        <div class="grid-2f">
+          <div class="field-group"><label>PSEUDO</label><input type="text" id="r-user" placeholder="MonPseudo" /></div>
+          <div class="field-group"><label>EMAIL</label><input type="email" id="r-email" placeholder="mail@exemple.com" /></div>
+        </div>
+        <div class="grid-2f">
+          <div class="field-group"><label>NOM DU CLUB</label><input type="text" id="r-club" placeholder="Phoenix Esport" /></div>
+          <div class="field-group"><label>TAG (2–4 CAR.)</label><input type="text" id="r-tag" placeholder="PHX" maxlength="4" /></div>
+        </div>
+        <div class="field-group"><label>MOT DE PASSE</label><input type="password" id="r-pass" placeholder="8 caractères min." /></div>
+        <button class="btn-submit" onclick="doRegister()" id="btn-register">CRÉER MON ÉQUIPE</button>
+        <div class="auth-switch">Déjà inscrit ? <span onclick="switchTab('login')">← Se connecter</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FIREBASE GUIDE MODAL -->
+<div class="modal-ov" id="fb-guide-modal">
+  <div class="modal" style="max-width:640px">
+    <button class="modal-close" onclick="closeModal('fb-guide-modal')">✕</button>
+    <div class="orb fs-13 c-gold mb-16" style="letter-spacing:2px">⚙️ GUIDE INSTALLATION FIREBASE</div>
+    <div style="line-height:1.9;font-size:13px;color:var(--text)">
+      <p class="c-blue fw-7 mb-8">1. Créer un projet Firebase</p>
+      <p class="c-dim">Rends-toi sur <strong class="c-gold">console.firebase.google.com</strong></p>
+      <p class="c-dim">Clique "Ajouter un projet" → donne un nom (ex: lol-manager)</p>
+      <hr class="div">
+      <p class="c-blue fw-7 mb-8">2. Activer Authentication</p>
+      <p class="c-dim">Build → Authentication → Get started</p>
+      <p class="c-dim">Activer le fournisseur <strong class="c-gold">Email/Password</strong></p>
+      <hr class="div">
+      <p class="c-blue fw-7 mb-8">3. Activer Firestore Database</p>
+      <p class="c-dim">Build → Firestore Database → Create database</p>
+      <p class="c-dim">Mode test (pour commencer) → Choisir une région proche</p>
+      <hr class="div">
+      <p class="c-blue fw-7 mb-8">4. Copier les clés de configuration</p>
+      <p class="c-dim">Project Settings (⚙️) → Your apps → Web app (</>) → Register app</p>
+      <p class="c-dim">Copie l'objet <code class="c-gold">firebaseConfig</code></p>
+      <hr class="div">
+      <p class="c-blue fw-7 mb-8">5. Coller dans le code</p>
+      <p class="c-dim">Dans ce fichier HTML, trouve la section marquée :</p>
+      <pre style="background:rgba(0,0,0,0.4);padding:10px;border:1px solid var(--border);font-size:11px;color:var(--gold);margin:8px 0">🔴 REMPLACE CES VALEURS PAR CELLES DE TON PROJET FIREBASE</pre>
+      <p class="c-dim">Remplace les valeurs placeholder par tes vraies clés.</p>
+      <hr class="div">
+      <p class="c-blue fw-7 mb-8">6. Configurer les règles Firestore</p>
+      <p class="c-dim">Firestore → Rules → Colle ces règles de base :</p>
+      <pre style="background:rgba(0,0,0,0.4);padding:10px;border:1px solid var(--border);font-size:11px;color:var(--text3);margin:8px 0">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId;
+    }
+    match /ladder/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.auth.uid == userId;
+    }
+  }
+}</pre>
+      <hr class="div">
+      <p class="c-green fw-7">✅ Ensuite, héberge le fichier HTML sur GitHub Pages ou Netlify pour y accéder depuis n'importe quel appareil !</p>
+    </div>
+  </div>
+</div>
+
+<!-- PLAYER DETAIL MODAL -->
+<div class="modal-ov" id="player-modal">
+  <div class="modal" style="max-width:500px">
+    <button class="modal-close" onclick="closeModal('player-modal')">✕</button>
+    <div id="player-modal-body"></div>
+  </div>
+</div>
+
+<!-- MATCH SIM OVERLAY -->
+<div class="sim-ov" id="sim-ov">
+  <div class="sim-arena">
+    <div class="sim-title">MATCH EN COURS</div>
+    <div class="sim-teams">
+      <div class="sim-tname c-gold" id="sth">—</div>
+      <div style="text-align:center">
+        <div class="sim-score" id="ssc">0 — 0</div>
+        <div class="sim-timer" id="stm">00:00</div>
+      </div>
+      <div class="sim-tname c-blue text-right" id="sta">—</div>
+    </div>
+    <div class="sim-log" id="slog"></div>
+    <div style="text-align:center;margin-top:18px">
+      <button class="btn btn-solid" id="sim-close-btn" style="display:none;padding:12px 30px;font-size:12px" onclick="closeSim()">VOIR LES RÉSULTATS →</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app">
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="tb-logo">⚡ LOL MGR</div>
+    <div class="tb-sep"></div>
+    <div class="tb-club" id="tb-club">—</div>
+    <div class="tb-metrics">
+      <div class="tb-metric"><div class="lbl">BUDGET</div><div class="val c-green" id="tb-budget">0€</div></div>
+      <div class="tb-metric"><div class="lbl">FANS</div><div class="val c-blue" id="tb-fans">0</div></div>
+      <div class="tb-metric"><div class="lbl">POPULARITÉ</div><div class="val" id="tb-pop">0</div></div>
+      <div class="tb-metric"><div class="lbl">SEMAINE</div><div class="val" id="tb-week">S1</div></div>
+    </div>
+    <div class="tb-user" onclick="confirmLogout()">
+      <div class="tb-avatar" id="tb-av">?</div>
+      <div class="tb-uname" id="tb-un">—</div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="nav-sect">CLUB</div>
+    <div class="nav-link active" onclick="goPage('dashboard')"><span class="ni">🏠</span>Dashboard</div>
+    <div class="nav-link" onclick="goPage('roster')"><span class="ni">👥</span>Roster</div>
+    <div class="nav-link" onclick="goPage('training')"><span class="ni">💪</span>Entraînement</div>
+    <div class="nav-link" onclick="goPage('sponsors')"><span class="ni">💰</span>Sponsors</div>
+    <div class="nav-sect">COMPÉTITION</div>
+    <div class="nav-link" onclick="goPage('league')"><span class="ni">🏆</span>LEC 2026</div>
+    <div class="nav-link" onclick="goPage('matches')"><span class="ni">⚔️</span>Matchs</div>
+    <div class="nav-link" onclick="goPage('friendly')"><span class="ni">🤝</span>Amicaux PvP</div>
+    <div class="nav-sect">MARCHÉ</div>
+    <div class="nav-link" onclick="goPage('transfer')"><span class="ni">🔄</span>Transferts LEC</div>
+    <div class="nav-link" onclick="goPage('scouting')"><span class="ni">🔍</span>Scouting ERL</div>
+    <div class="nav-link" onclick="goPage('ladder')"><span class="ni">📊</span>Leaderboard</div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="ph"><h2>🏠 DASHBOARD</h2><div class="ph-sub">Vue d'ensemble de ton organisation</div></div>
+      <div class="g4 mb-16">
+        <div class="kpi"><div class="k-val" id="d-rank">#—</div><div class="k-lbl">RANG LADDER</div></div>
+        <div class="kpi"><div class="k-val c-green" id="d-wins">0W 0L</div><div class="k-lbl">BILAN</div></div>
+        <div class="kpi"><div class="k-val c-blue" id="d-pop">0</div><div class="k-lbl">POPULARITÉ</div></div>
+        <div class="kpi"><div class="k-val" id="d-ovr">—</div><div class="k-lbl">OVR ÉQUIPE</div></div>
+      </div>
+      <div class="g2">
+        <div class="panel">
+          <div class="panel-title">📋 DERNIERS RÉSULTATS</div>
+          <div class="panel-body" id="d-results"><p class="c-dim fs-13">Aucun match joué.</p></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">📅 PROCHAINS MATCHS LEC</div>
+          <div class="panel-body" id="d-upcoming"></div>
+        </div>
+      </div>
+      <div class="panel mt-16">
+        <div class="panel-title">⭐ JOUEURS EN FORME</div>
+        <div class="panel-body">
+          <div class="g4" id="d-topplayers"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROSTER -->
+    <div class="page" id="page-roster">
+      <div class="ph"><h2>👥 ROSTER</h2><div class="ph-sub">Tes 5 titulaires</div></div>
+      <div class="g3" id="roster-grid"></div>
+    </div>
+
+    <!-- TRAINING -->
+    <div class="page" id="page-training">
+      <div class="ph">
+        <h2>💪 ENTRAÎNEMENT</h2>
+        <div class="ph-sub">Programme la semaine <span class="c-gold" id="tr-week">1</span></div>
+        <div class="ph-right"><button class="btn btn-solid" onclick="applyTraining()">VALIDER SEMAINE →</button></div>
+      </div>
+      <div class="g2">
+        <div class="panel">
+          <div class="panel-title">PROGRAMME HEBDOMADAIRE</div>
+          <div id="train-slots"></div>
+          <div class="panel-body">
+            <p class="fs-12 c-dim mono">Salaires & revenus sponsors déduits automatiquement.</p>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">GUIDE ENTRAÎNEMENT</div>
+          <div class="panel-body" style="line-height:2;font-size:13px">
+            <p>🎯 <span class="c-gold">Mécanique</span> — Skill individuel & mécanique de jeu</p>
+            <p>🧠 <span class="c-blue">Game Sense</span> — Lecture de jeu & map awareness</p>
+            <p>🤝 <span class="c-gold">Teamwork</span> — Communication & cohésion</p>
+            <p>⚡ <span class="c-blue">Physique</span> — Endurance, focus, anti-tilt</p>
+            <p>🗺️ <span class="c-gold">Vision</span> — Contrôle de carte & warding</p>
+            <hr class="div">
+            <p class="fs-12 c-dim mono">Chaque séance : +1 à +3 points dans la stat choisie</p>
+            <p class="fs-12 c-dim mono">Plafonné par le potentiel du joueur</p>
+            <p class="fs-12 c-dim mono">Fatigue élevée → baisse de morale</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SPONSORS -->
+    <div class="page" id="page-sponsors">
+      <div class="ph"><h2>💰 SPONSORS</h2><div class="ph-sub">Contrats et partenariats</div></div>
+      <div class="g3 mb-16" id="sponsors-avail"></div>
+      <div class="panel">
+        <div class="panel-title">✅ SPONSORS ACTIFS</div>
+        <div class="panel-body" id="sponsors-active"><p class="c-dim fs-13">Aucun sponsor actif.</p></div>
+      </div>
+    </div>
+
+    <!-- LEC LEAGUE -->
+    <div class="page" id="page-league">
+      <div class="ph"><h2>🏆 LEC VERSUS 2026</h2><div class="ph-sub">Championnat officiel EMEA</div></div>
+      <div class="g2">
+        <div class="panel">
+          <div class="panel-title">CLASSEMENT</div>
+          <div id="league-table"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">TON CALENDRIER</div>
+          <div class="panel-body" id="league-cal"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MATCHES -->
+    <div class="page" id="page-matches">
+      <div class="ph"><h2>⚔️ MATCHS LEC</h2><div class="ph-sub">Joue tes rencontres officielles</div></div>
+      <div id="matches-list"></div>
+    </div>
+
+    <!-- FRIENDLY PVP -->
+    <div class="page" id="page-friendly">
+      <div class="ph"><h2>🤝 AMICAUX PvP</h2><div class="ph-sub">Défie d'autres managers · +fans & popularité</div></div>
+      <div class="panel mb-16">
+        <div class="panel-title">ADVERSAIRES DISPONIBLES</div>
+        <div class="panel-body" id="friendly-opponents"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">HISTORIQUE AMICAUX</div>
+        <div class="panel-body" id="friendly-hist"><p class="c-dim fs-13">Aucun amical joué.</p></div>
+      </div>
+    </div>
+
+    <!-- TRANSFER -->
+    <div class="page" id="page-transfer">
+      <div class="ph"><h2>🔄 TRANSFERTS</h2><div class="ph-sub">Joueurs LEC disponibles sur le marché</div></div>
+      <div class="g2">
+        <div class="panel">
+          <div class="panel-title">🛒 MARCHÉ — ACHETER</div>
+          <div class="panel-body" id="market-buy"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">💸 TON ROSTER — VENDRE</div>
+          <div class="panel-body" id="market-sell"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCOUTING ERL -->
+    <div class="page" id="page-scouting">
+      <div class="ph"><h2>🔍 SCOUTING ERL</h2><div class="ph-sub">Déniche les prochaines stars des ligues régionales</div></div>
+      <div class="panel mb-16">
+        <div class="panel-title">🌟 TALENTS ERL — PROSPECTS LEC</div>
+        <div class="panel-body">
+          <p class="fs-13 c-dim mb-12">Ces joueurs évoluent en LFL, Superliga, NLC, Prime League, Ultraliga ou PG Nationals. Leur potentiel est élevé mais leur OVR actuelle est plus faible — à toi de les faire progresser !</p>
+          <div class="g3" id="scout-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LADDER -->
+    <div class="page" id="page-ladder">
+      <div class="ph"><h2>📊 LEADERBOARD GLOBAL</h2><div class="ph-sub">Classement de tous les managers</div></div>
+      <div class="panel">
+        <div class="panel-title">TOP MANAGERS — LEC EDITION</div>
+        <div id="ladder-body"></div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /app -->
+
+<script>
+// ============================================================
+// ══════════════════ GAME DATA ═══════════════════════════════
+// ============================================================
+
+// ── REAL LEC VERSUS 2026 ROSTERS ──
+const LEC_ROSTERS = {
+  "G2 Esports": {
+    str: 88, color: '#D4AF37',
+    players: [
+      {name:'BrokenBlade',role:'TOP',nationality:'🇹🇷 TR',age:24,ovr:84,pot:87},
+      {name:'SkewMond',role:'JGL',nationality:'🇫🇷 FR',age:22,ovr:81,pot:88},
+      {name:'Caps',role:'MID',nationality:'🇩🇰 DK',age:24,ovr:91,pot:93},
+      {name:'Hans Sama',role:'BOT',nationality:'🇫🇷 FR',age:23,ovr:87,pot:89},
+      {name:'Labrov',role:'SUP',nationality:'🇬🇷 GR',age:24,ovr:80,pot:83},
+    ]
+  },
+  "Karmine Corp": {
+    str: 86, color: '#0088FF',
+    players: [
+      {name:'Canna',role:'TOP',nationality:'🇰🇷 KR',age:24,ovr:85,pot:88},
+      {name:'Yike',role:'JGL',nationality:'🇸🇪 SE',age:21,ovr:82,pot:89},
+      {name:'Kyeahoo',role:'MID',nationality:'🇰🇷 KR',age:21,ovr:79,pot:92},
+      {name:'Caliste',role:'BOT',nationality:'🇫🇷 FR',age:20,ovr:83,pot:94},
+      {name:'Busio',role:'SUP',nationality:'🇵🇱 PL',age:21,ovr:78,pot:87},
+    ]
+  },
+  "Movistar KOI": {
+    str: 84, color: '#FF4400',
+    players: [
+      {name:'Myrwn',role:'TOP',nationality:'🇪🇸 ES',age:22,ovr:80,pot:85},
+      {name:'Elyoya',role:'JGL',nationality:'🇪🇸 ES',age:23,ovr:84,pot:86},
+      {name:'Jojopyun',role:'MID',nationality:'🇺🇸 US',age:21,ovr:83,pot:88},
+      {name:'Supa',role:'BOT',nationality:'🇪🇸 ES',age:22,ovr:82,pot:86},
+      {name:'Alvaro',role:'SUP',nationality:'🇪🇸 ES',age:23,ovr:78,pot:82},
+    ]
+  },
+  "Fnatic": {
+    str: 78, color: '#FF6600',
+    players: [
+      {name:'Empyros',role:'TOP',nationality:'🇬🇷 GR',age:20,ovr:74,pot:88},
+      {name:'Razork',role:'JGL',nationality:'🇪🇸 ES',age:23,ovr:78,pot:82},
+      {name:'Vladi',role:'MID',nationality:'🇬🇷 GR',age:22,ovr:77,pot:86},
+      {name:'Upset',role:'BOT',nationality:'🇩🇪 DE',age:24,ovr:85,pot:88},
+      {name:'Lospa',role:'SUP',nationality:'🇰🇷 KR',age:21,ovr:74,pot:85},
+    ]
+  },
+  "GIANTX": {
+    str: 76, color: '#00CCFF',
+    players: [
+      {name:'Lot',role:'TOP',nationality:'🇹🇷 TR',age:21,ovr:76,pot:86},
+      {name:'ISMA',role:'JGL',nationality:'🇧🇪 BE',age:22,ovr:75,pot:83},
+      {name:'Jackies',role:'MID',nationality:'🇨🇿 CZ',age:22,ovr:78,pot:85},
+      {name:'Noah',role:'BOT',nationality:'🇰🇷 KR',age:22,ovr:81,pot:85},
+      {name:'Jun',role:'SUP',nationality:'🇰🇷 KR',age:22,ovr:77,pot:83},
+    ]
+  },
+  "Team Vitality": {
+    str: 74, color: '#FFDD00',
+    players: [
+      {name:'Naak Nako',role:'TOP',nationality:'🇹🇷 TR',age:22,ovr:74,pot:83},
+      {name:'Lyncas',role:'JGL',nationality:'🇱🇹 LT',age:21,ovr:73,pot:84},
+      {name:'Humanoid',role:'MID',nationality:'🇨🇿 CZ',age:24,ovr:83,pot:85},
+      {name:'Carzzy',role:'BOT',nationality:'🇨🇿 CZ',age:23,ovr:80,pot:82},
+      {name:'Fleshy',role:'SUP',nationality:'🇹🇷 TR',age:20,ovr:72,pot:83},
+    ]
+  },
+  "SK Gaming": {
+    str: 77, color: '#FF0066',
+    players: [
+      {name:'Wunder',role:'TOP',nationality:'🇩🇰 DK',age:26,ovr:82,pot:83},
+      {name:'Skeanz',role:'JGL',nationality:'🇫🇷 FR',age:22,ovr:74,pot:82},
+      {name:'LIDER',role:'MID',nationality:'🇷🇺 RU',age:22,ovr:80,pot:86},
+      {name:'Jopa',role:'BOT',nationality:'🇭🇷 HR',age:21,ovr:75,pot:85},
+      {name:'Mikyx',role:'SUP',nationality:'🇸🇮 SI',age:26,ovr:81,pot:82},
+    ]
+  },
+  "Shifters": {
+    str: 71, color: '#8855FF',
+    players: [
+      {name:'Rooster',role:'TOP',nationality:'🇰🇷 KR',age:21,ovr:73,pot:85},
+      {name:'Boukada',role:'JGL',nationality:'🇫🇷 FR',age:21,ovr:72,pot:84},
+      {name:'nuc',role:'MID',nationality:'🇩🇿 DZ',age:21,ovr:76,pot:86},
+      {name:'Paduck',role:'BOT',nationality:'🇰🇷 KR',age:22,ovr:76,pot:85},
+      {name:'Trymbi',role:'SUP',nationality:'🇵🇱 PL',age:25,ovr:78,pot:80},
+    ]
+  },
+  "Team Heretics": {
+    str: 68, color: '#FF2244',
+    players: [
+      {name:'Tracyn',role:'TOP',nationality:'🇵🇱 PL',age:20,ovr:71,pot:86},
+      {name:'Sheo',role:'JGL',nationality:'🇫🇷 FR',age:21,ovr:72,pot:83},
+      {name:'Serin',role:'MID',nationality:'🇹🇷 TR',age:21,ovr:70,pot:84},
+      {name:'Ice',role:'BOT',nationality:'🇰🇷 KR',age:22,ovr:74,pot:83},
+      {name:'Stend',role:'SUP',nationality:'🇫🇷 FR',age:22,ovr:73,pot:82},
+    ]
+  },
+  "Natus Vincere": {
+    str: 70, color: '#FFDD00',
+    players: [
+      {name:'Maynter',role:'TOP',nationality:'🇺🇦 UA',age:20,ovr:71,pot:88},
+      {name:'Rhilech',role:'JGL',nationality:'🇹🇷 TR',age:21,ovr:70,pot:85},
+      {name:'Poby',role:'MID',nationality:'🇰🇷 KR',age:22,ovr:76,pot:87},
+      {name:'Hans SamD',role:'BOT',nationality:'🇰🇷 KR',age:23,ovr:75,pot:82},
+      {name:'Parus',role:'SUP',nationality:'🇹🇷 TR',age:22,ovr:70,pot:83},
+    ]
+  },
+  // ERL invited
+  "Los Ratones": {
+    str: 72, color: '#FF8800',
+    players: [
+      {name:'Baus',role:'TOP',nationality:'🇩🇪 DE',age:26,ovr:78,pot:80},
+      {name:'Samulek',role:'JGL',nationality:'🇵🇱 PL',age:21,ovr:73,pot:82},
+      {name:'Hatrixx',role:'MID',nationality:'🇩🇰 DK',age:22,ovr:74,pot:83},
+      {name:'Jackspektra',role:'BOT',nationality:'🇩🇰 DK',age:22,ovr:76,pot:84},
+      {name:'Xeppa',role:'SUP',nationality:'🇳🇴 NO',age:24,ovr:72,pot:78},
+    ]
+  },
+  "KC Blue": {
+    str: 67, color: '#0055FF',
+    players: [
+      {name:'Tao',role:'TOP',nationality:'🇮🇹 IT',age:21,ovr:68,pot:85},
+      {name:'Yukino',role:'JGL',nationality:'🇫🇷 FR',age:21,ovr:69,pot:84},
+      {name:'Kamiloo',role:'MID',nationality:'🇫🇷 FR',age:21,ovr:70,pot:86},
+      {name:'Hazel',role:'BOT',nationality:'🇷🇴 RO',age:21,ovr:68,pot:85},
+      {name:'Prime',role:'SUP',nationality:'🇫🇷 FR',age:20,ovr:65,pot:83},
+    ]
+  },
+};
+
+// ── ERL SCOUTING PROSPECTS ──
+const ERL_PROSPECTS = [
+  // LFL (France)
+  {name:'Saken',role:'MID',league:'LFL',team:'Team GO',nationality:'🇫🇷 FR',age:22,ovr:71,pot:88,salary:3200,marketValue:85000},
+  {name:'Broken',role:'MID',league:'LFL',team:'Vitality.Bee',nationality:'🇫🇷 FR',age:21,ovr:70,pot:86,salary:2800,marketValue:75000},
+  {name:'Jiizuke',role:'MID',league:'LFL',team:'Solary',nationality:'🇮🇹 IT',age:26,ovr:74,pot:76,salary:4200,marketValue:65000},
+  {name:'Sheo',role:'JGL',league:'LFL',team:'GamersOrigin',nationality:'🇫🇷 FR',age:21,ovr:69,pot:84,salary:2500,marketValue:60000},
+  {name:'Bnetme',role:'TOP',league:'LFL',team:'KC Blue',nationality:'🇫🇷 FR',age:20,ovr:67,pot:84,salary:2200,marketValue:55000},
+  // Superliga (Spain)
+  {name:'Fresskowy',role:'MID',league:'Superliga',team:'MAD Lions KOI',nationality:'🇵🇱 PL',age:21,ovr:72,pot:87,salary:3500,marketValue:80000},
+  {name:'Alvaro',role:'TOP',league:'Superliga',team:'Barça eSports',nationality:'🇪🇸 ES',age:21,ovr:68,pot:85,salary:2600,marketValue:58000},
+  {name:'Thayger',role:'JGL',league:'Superliga',team:'Barça eSports',nationality:'🇪🇸 ES',age:22,ovr:71,pot:84,salary:3000,marketValue:70000},
+  // NLC (Nordics/UK)
+  {name:'Marcass',role:'TOP',league:'NLC',team:'Los Ratones',nationality:'🇩🇪 DE',age:22,ovr:69,pot:85,salary:2400,marketValue:58000},
+  {name:'Caedrel',role:'JGL',league:'NLC',team:'Los Ratones',nationality:'🇬🇧 UK',age:27,ovr:75,pot:77,salary:5000,marketValue:60000},
+  {name:'Orome',role:'TOP',league:'NLC',team:'Resolve',nationality:'🇩🇪 DE',age:24,ovr:72,pot:78,salary:3200,marketValue:55000},
+  // Prime League (DACH)
+  {name:'Panter',role:'TOP',league:'Prime League',team:'BIG',nationality:'🇩🇪 DE',age:20,ovr:67,pot:86,salary:2100,marketValue:52000},
+  {name:'Neon',role:'BOT',league:'Prime League',team:'No Need Orga',nationality:'🇩🇪 DE',age:21,ovr:68,pot:83,salary:2300,marketValue:54000},
+  {name:'Zyodra',role:'MID',league:'Prime League',team:'SK Prime',nationality:'🇩🇪 DE',age:20,ovr:66,pot:85,salary:2000,marketValue:50000},
+  // Ultraliga (Poland)
+  {name:'Czajek',role:'MID',league:'Ultraliga',team:'PRIDE',nationality:'🇵🇱 PL',age:23,ovr:74,pot:80,salary:3800,marketValue:72000},
+  {name:'Kamiloo',role:'MID',league:'Ultraliga',team:'PRIDE',nationality:'🇵🇱 PL',age:21,ovr:70,pot:86,salary:2700,marketValue:66000},
+  // PG Nationals (Italy)
+  {name:'Larssen',role:'MID',league:'PG Nationals',team:'QLASH',nationality:'🇸🇪 SE',age:24,ovr:76,pot:79,salary:4500,marketValue:78000},
+  {name:'Empyros',role:'TOP',league:'PG Nationals',team:'Noize',nationality:'🇬🇷 GR',age:20,ovr:68,pot:88,salary:2400,marketValue:60000},
+  {name:'Vladi',role:'MID',league:'PG Nationals',team:'Noize',nationality:'🇬🇷 GR',age:22,ovr:72,pot:84,salary:3200,marketValue:69000},
+];
+
+const ROLES = ['TOP','JGL','MID','BOT','SUP'];
+const SKILLS = ['Mécanique','Game Sense','Teamwork','Vision','Physique'];
+const SPONSORS_DATA = [
+  {id:'sp1',name:'RED BULL',icon:'🐂',bonus:'5 000€/sem',req:'Popularité > 50',check:g=>g.popularity>=50,pay:5000,col:'#E82040'},
+  {id:'sp2',name:'LOGITECH',icon:'🖱️',bonus:'3 000€/sem',req:'Fans > 2 000',check:g=>g.fans>=2000,pay:3000,col:'#0099CC'},
+  {id:'sp3',name:'CORSAIR',icon:'⚓',bonus:'4 000€/sem',req:'3 victoires',check:g=>g.wins>=3,pay:4000,col:'#FFB84D'},
+  {id:'sp4',name:'RAZER',icon:'🐍',bonus:'7 000€/sem',req:'OVR > 75',check:g=>calcOvr(g.roster)>=75,pay:7000,col:'#10C870'},
+  {id:'sp5',name:'ALIENWARE',icon:'👽',bonus:'10 000€/sem',req:'Top 3 Ladder',check:g=>getLadderPos(g.uid)<=3,pay:10000,col:'#00C8E8'},
+  {id:'sp6',name:'TWITCH',icon:'📺',bonus:'2 000€/sem',req:'Fans > 500',check:g=>g.fans>=500,pay:2000,col:'#8858F8'},
+];
+
+const MATCH_EVENTS = [
+  '▶ {T} prend le premier Dragon !',
+  '▶ {T} domine la voie TOP',
+  '▶ {P} roams et obtient un kill !',
+  '▶ {T} prend le Baron Nashor !',
+  '▶ {P} fait une TEAMFIGHT parfaite',
+  '▶ {T} détruit un Inhibiteur',
+  '▶ {T} remporte une teamfight 4 pour 1',
+  '▶ {T} contrôle la vision du jungle',
+  '▶ {P} steals l\'objectif !',
+  '▶ {T} push les tours du milieu',
+  '▶ {T} prend l\'Âme Dragon',
+  '▶ {P} : PENTA KILL !! 🔥',
+];
+
+// ============================================================
+// GAME STATE
+// ============================================================
+let G = null;        // local game object
+let cachedLadder = [];
+let fbReady = false;
+let marketPlayers = [];
+let simCallback = null;
+
+// ============================================================
+// FIREBASE CHECK
+// ============================================================
+window.addEventListener('firebase-ready', () => { fbReady = true; initApp(); });
+window.addEventListener('load', () => {
+  if(!fbReady) {
+    // Firebase not configured — fallback to localStorage
+    setTimeout(() => {
+      if(!fbReady) { fbReady = false; initAppLocal(); }
+    }, 1500);
+  }
+});
+
+function initApp() {
+  const { auth, onAuthStateChanged } = window._fb;
+  onAuthStateChanged(auth, async (user) => {
+    hideLoading();
+    if(user) { await loadUserData(user); startApp(); }
+    else { showAuth(); }
+  });
+}
+
+function initAppLocal() {
+  // Fallback: localStorage only
+  window._fb = null;
+  hideLoading();
+  document.getElementById('config-banner').classList.remove('hidden');
+  const sess = localStorage.getItem('lolmgr_uid');
+  if(sess) {
+    try {
+      const data = JSON.parse(localStorage.getItem('lolmgr_' + sess));
+      if(data) { G = data; startApp(); return; }
+    } catch(e) {}
+  }
+  showAuth();
+}
+
+// ============================================================
+// AUTH FUNCTIONS
+// ============================================================
+function switchTab(tab) {
+  document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+  document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+  document.getElementById('form-login').style.display = tab === 'login' ? '' : 'none';
+  document.getElementById('form-register').style.display = tab === 'register' ? '' : 'none';
+  setAuthError('');
+}
+
+function setAuthError(msg) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg; el.classList.toggle('show', !!msg);
+}
+
+async function doLogin() {
+  const email = document.getElementById('l-email').value.trim();
+  const pass = document.getElementById('l-pass').value;
+  if(!email || !pass) return setAuthError('Remplis tous les champs.');
+  const btn = document.getElementById('btn-login');
+  btn.disabled = true; btn.textContent = 'CONNEXION...';
+  try {
+    if(window._fb) {
+      const { auth, signInWithEmailAndPassword } = window._fb;
+      const cred = await signInWithEmailAndPassword(auth, email, pass);
+      await loadUserData(cred.user);
+    } else {
+      // Local fallback
+      const allUsers = JSON.parse(localStorage.getItem('lolmgr_users') || '{}');
+      const found = Object.values(allUsers).find(u => u.email === email && u.password === pass);
+      if(!found) throw new Error('Identifiants incorrects');
+      G = found;
+      localStorage.setItem('lolmgr_uid', G.uid);
+    }
+    startApp();
+  } catch(e) {
+    setAuthError(translateFirebaseError(e.code || e.message));
+  }
+  btn.disabled = false; btn.textContent = 'SE CONNECTER';
+}
+
+async function doRegister() {
+  const username = document.getElementById('r-user').value.trim();
+  const email = document.getElementById('r-email').value.trim();
+  const club = document.getElementById('r-club').value.trim();
+  const tag = document.getElementById('r-tag').value.trim().toUpperCase();
+  const pass = document.getElementById('r-pass').value;
+  if(!username || !email || !club || !tag || !pass) return setAuthError('Remplis tous les champs.');
+  if(tag.length < 2) return setAuthError('Tag trop court (min 2 caractères).');
+  if(pass.length < 6) return setAuthError('Mot de passe trop court (min 6 caractères).');
+  const btn = document.getElementById('btn-register');
+  btn.disabled = true; btn.textContent = 'CRÉATION...';
+  try {
+    let uid;
+    if(window._fb) {
+      const { auth, createUserWithEmailAndPassword } = window._fb;
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      uid = cred.user.uid;
+    } else {
+      uid = Math.random().toString(36).substr(2,12);
+    }
+    const newGame = createNewGame(uid, username, club, tag, email, pass);
+    G = newGame;
+    await saveGame();
+    startApp();
+    notify(`Bienvenue, Manager de ${club} !`, 's');
+  } catch(e) {
+    setAuthError(translateFirebaseError(e.code || e.message));
+  }
+  btn.disabled = false; btn.textContent = 'CRÉER MON ÉQUIPE';
+}
+
+function translateFirebaseError(code) {
+  const map = {
+    'auth/email-already-in-use': 'Email déjà utilisé.',
+    'auth/invalid-email': 'Email invalide.',
+    'auth/user-not-found': 'Aucun compte trouvé avec cet email.',
+    'auth/wrong-password': 'Mot de passe incorrect.',
+    'auth/weak-password': 'Mot de passe trop faible.',
+    'auth/network-request-failed': 'Erreur réseau. Vérifie ta connexion.',
+  };
+  if(code && map[code]) return map[code];
+  if(typeof code === 'string' && code.includes('Identifiants')) return code;
+  return 'Erreur. Vérifie tes identifiants.';
+}
+
+function confirmLogout() {
+  if(!confirm('Se déconnecter ?')) return;
+  doLogout();
+}
+
+async function doLogout() {
+  if(window._fb) {
+    const { auth, signOut } = window._fb;
+    await signOut(auth);
+  } else {
+    localStorage.removeItem('lolmgr_uid');
+  }
+  location.reload();
+}
+
+// ============================================================
+// FIREBASE DATA
+// ============================================================
+async function loadUserData(firebaseUser) {
+  if(!window._fb) return;
+  const { db, doc, getDoc } = window._fb;
+  const ref = doc(db, 'users', firebaseUser.uid);
+  const snap = await getDoc(ref);
+  if(snap.exists()) {
+    G = snap.data();
+    G.uid = firebaseUser.uid;
+  } else {
+    // New user from Firebase auth (shouldn't happen normally)
+    G = null;
+  }
+}
+
+async function saveGame() {
+  if(!G) return;
+  G.updatedAt = Date.now();
+  if(window._fb) {
+    const { db, doc, setDoc } = window._fb;
+    await setDoc(doc(db, 'users', G.uid), G, { merge: true });
+    // Update ladder entry
+    await setDoc(doc(db, 'ladder', G.uid), {
+      uid: G.uid, username: G.username, clubName: G.clubName, tag: G.tag,
+      wins: G.wins, losses: G.losses, fans: G.fans, popularity: G.popularity,
+      ovr: calcOvr(G.roster), score: calcScore(G), week: G.week,
+    }, { merge: true });
+  } else {
+    const allUsers = JSON.parse(localStorage.getItem('lolmgr_users') || '{}');
+    allUsers[G.uid] = G;
+    localStorage.setItem('lolmgr_users', JSON.stringify(allUsers));
+    localStorage.setItem('lolmgr_uid', G.uid);
+  }
+}
+
+async function fetchLadder() {
+  if(window._fb) {
+    const { db, collection, getDocs, query, orderBy, limit } = window._fb;
+    const q = query(collection(db, 'ladder'), orderBy('score', 'desc'), limit(50));
+    const snap = await getDocs(q);
+    cachedLadder = snap.docs.map(d => d.data());
+  } else {
+    const allUsers = JSON.parse(localStorage.getItem('lolmgr_users') || '{}');
+    cachedLadder = Object.values(allUsers).map(u => ({
+      uid: u.uid, username: u.username, clubName: u.clubName, tag: u.tag,
+      wins: u.wins, losses: u.losses, fans: u.fans, popularity: u.popularity,
+      ovr: calcOvr(u.roster), score: calcScore(u),
+    })).sort((a,b) => b.score - a.score);
+  }
+}
+
+function getLadderPos(uid) {
+  const idx = cachedLadder.findIndex(u => u.uid === uid);
+  return idx === -1 ? 999 : idx + 1;
+}
+
+// ============================================================
+// NEW GAME
+// ============================================================
+function rnd(a,b) { return Math.floor(Math.random()*(b-a+1))+a; }
+function rndArr(arr) { return arr[rnd(0,arr.length-1)]; }
+
+function createNewGame(uid, username, clubName, tag, email, password) {
+  const roster = generateStarterRoster();
+  return {
+    uid, username, clubName, tag, email, password: password || '',
+    budget: 300000, fans: 1000, popularity: 10,
+    wins: 0, losses: 0, week: 1,
+    roster,
+    matchHistory: [],
+    friendlyHistory: [],
+    activeSponsors: [],
+    leagueSeason: generateLeague(clubName),
+    ovr: calcOvr(roster),
+  };
+}
+
+function generateStarterRoster() {
+  // Pick one real player per role from various LEC teams as starters
+  const starterPool = [
+    {name:'Yorick',role:'TOP',nationality:'🇫🇷 FR',age:22,ovr:72,pot:84},
+    {name:'Elwind',role:'JGL',nationality:'🇩🇪 DE',age:21,ovr:70,pot:85},
+    {name:'Arkos',role:'MID',nationality:'🇧🇪 BE',age:22,ovr:73,pot:83},
+    {name:'Rayze',role:'BOT',nationality:'🇸🇪 SE',age:21,ovr:72,pot:85},
+    {name:'Poros',role:'SUP',nationality:'🇵🇱 PL',age:23,ovr:69,pot:80},
+  ];
+  return starterPool.map(p => buildPlayerObj(p));
+}
+
+function buildPlayerObj(p) {
+  const base = p.ovr;
+  const skills = {};
+  SKILLS.forEach(s => { skills[s] = rnd(Math.max(40, base-12), Math.min(99, base+10)); });
+  const ovr = Math.round(Object.values(skills).reduce((a,b)=>a+b,0)/SKILLS.length);
+  return {
+    id: Math.random().toString(36).substr(2,10),
+    name: p.name, role: p.role, nationality: p.nationality,
+    age: p.age, skills, ovr,
+    potential: p.pot, salary: rnd(3000,8000),
+    marketValue: Math.round(ovr * rnd(900,1100)),
+    morale: rnd(70,90), fatigue: 0, league: p.league || 'LEC',
+  };
+}
+
+function calcOvr(roster) {
+  if(!roster || !roster.length) return 0;
+  return Math.round(roster.reduce((a,p)=>a+p.ovr,0)/roster.length);
+}
+
+function calcScore(g) {
+  return (g.wins||0)*3 + Math.floor((g.fans||0)/500) + Math.floor((g.popularity||0)/10);
+}
+
+// ============================================================
+// LEAGUE GENERATION (LEC VERSUS 2026)
+// ============================================================
+function generateLeague(myClub) {
+  const teams = [myClub, ...Object.keys(LEC_ROSTERS)];
+  const standings = teams.map(t => ({
+    name: t, isPlayer: t === myClub,
+    w: 0, l: 0, pts: 0,
+    str: LEC_ROSTERS[t]?.str || 72,
+    color: LEC_ROSTERS[t]?.color || '#888',
+  }));
+  const schedule = [];
+  for(let i = 0; i < teams.length; i++) {
+    for(let j = i+1; j < teams.length; j++) {
+      schedule.push({ home: teams[i], away: teams[j], played: false });
+    }
+  }
+  return { standings, schedule };
+}
+
+// ============================================================
+// START APP
+// ============================================================
+function startApp() {
+  if(!G) { showAuth(); return; }
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  G.ovr = calcOvr(G.roster);
+  buildMarket();
+  renderAll();
+  fetchLadder().then(() => renderLadder());
+}
+
+function showAuth() {
+  document.getElementById('auth-screen').style.display = 'flex';
+}
+
+function hideLoading() {
+  const ls = document.getElementById('loading-screen');
+  ls.style.opacity = '0';
+  ls.style.transition = 'opacity 0.5s';
+  setTimeout(() => ls.style.display = 'none', 500);
+}
+
+// ============================================================
+// TOPBAR
+// ============================================================
+function updateTopBar() {
+  document.getElementById('tb-club').textContent = `[${G.tag}] ${G.clubName}`;
+  document.getElementById('tb-budget').textContent = fmt(G.budget);
+  document.getElementById('tb-fans').textContent = G.fans.toLocaleString();
+  document.getElementById('tb-pop').textContent = G.popularity;
+  document.getElementById('tb-week').textContent = `S${G.week}`;
+  document.getElementById('tb-un').textContent = G.username;
+  document.getElementById('tb-av').textContent = G.username[0].toUpperCase();
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function goPage(pg) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + pg).classList.add('active');
+  document.querySelectorAll('.nav-link').forEach(n => {
+    if(n.getAttribute('onclick') && n.getAttribute('onclick').includes(`'${pg}'`)) n.classList.add('active');
+  });
+  if(pg === 'transfer') renderTransfer();
+  if(pg === 'scouting') renderScouting();
+  if(pg === 'ladder') fetchLadder().then(() => renderLadder());
+  if(pg === 'friendly') renderFriendly();
+}
+
+// ============================================================
+// RENDER ALL
+// ============================================================
+function renderAll() {
+  updateTopBar();
+  renderDashboard();
+  renderRoster();
+  renderTraining();
+  renderSponsors();
+  renderLeague();
+  renderMatches();
+}
+
+// ──── DASHBOARD ────
+function renderDashboard() {
+  G.ovr = calcOvr(G.roster);
+  const pos = getLadderPos(G.uid);
+  document.getElementById('d-rank').textContent = pos < 900 ? `#${pos}` : '#?';
+  document.getElementById('d-wins').textContent = `${G.wins}W ${G.losses}L`;
+  document.getElementById('d-pop').textContent = G.popularity;
+  document.getElementById('d-ovr').textContent = `OVR ${G.ovr}`;
+
+  // Results
+  const resEl = document.getElementById('d-results');
+  const last = G.matchHistory.slice(-4).reverse();
+  resEl.innerHTML = last.length ? last.map(m => matchRowHtml(m)).join('') : '<p class="c-dim fs-13">Aucun match joué.</p>';
+
+  // Upcoming
+  const upcoming = (G.leagueSeason?.schedule||[]).filter(m => !m.played && (m.home===G.clubName||m.away===G.clubName)).slice(0,3);
+  document.getElementById('d-upcoming').innerHTML = upcoming.map(m => `
+    <div class="mc">
+      <div class="mc-team fs-12">${m.home}</div>
+      <div class="mc-score fs-13 c-dim">VS</div>
+      <div class="mc-team right fs-12">${m.away}</div>
+    </div>
+  `).join('') || '<p class="c-dim fs-13">Calendrier terminé !</p>';
+
+  // Top players
+  const top = [...G.roster].sort((a,b) => b.ovr-a.ovr).slice(0,4);
+  document.getElementById('d-topplayers').innerHTML = top.map(p => miniCard(p)).join('');
+}
+
+function matchRowHtml(m) {
+  const isHome = m.homeTeam === G.clubName;
+  const myScore = isHome ? m.homeScore : m.awayScore;
+  const oppScore = isHome ? m.awayScore : m.homeScore;
+  const won = myScore > oppScore;
+  return `<div class="mc">
+    <div class="mc-team fs-12">${m.homeTeam}</div>
+    <div class="mc-score ${won?'c-green':'c-red'}">${m.homeScore} — ${m.awayScore}</div>
+    <div class="mc-team right fs-12">${m.awayTeam}</div>
+    <span class="mc-badge ${won?'w':'l'}">${m.type||'LEC'}</span>
+  </div>`;
+}
+
+function miniCard(p) {
+  return `<div class="pcard" onclick="showPlayerDetail('${p.id}')">
+    <div class="pc-head">
+      <div class="pc-badge rb-${p.role}" style="width:38px;height:38px;font-size:13px">
+        <span class="r-${p.role} orb fw-7">${p.role[0]}</span>
+      </div>
+      <div class="pc-info">
+        <div class="pc-name">${p.name}</div>
+        <div class="pc-role r-${p.role}">${p.role}</div>
+      </div>
+      <div class="pc-ovr" style="font-size:22px">${p.ovr}</div>
+    </div>
+    ${skillBarHtml('Mécanique', p.skills['Mécanique'])}
+  </div>`;
+}
+
+// ──── ROSTER ────
+function renderRoster() {
+  document.getElementById('roster-grid').innerHTML = G.roster.map(p => fullCard(p)).join('');
+}
+
+function fullCard(p, extraBtn='') {
+  const potCol = p.potential >= 90 ? 'c-gold' : p.potential >= 82 ? 'c-blue' : 'c-dim';
+  return `<div class="pcard" onclick="showPlayerDetail('${p.id}')">
+    <div class="pc-head">
+      <div class="pc-badge rb-${p.role}">
+        <span class="r-${p.role} orb fw-7" style="font-size:17px">${p.role[0]}</span>
+      </div>
+      <div class="pc-info">
+        <div class="pc-name">${p.name}</div>
+        <div class="pc-role r-${p.role}">${p.role}</div>
+        <div class="pc-meta">${p.nationality} · ${p.age} ans</div>
+      </div>
+      <div class="pc-ovr">
+        ${p.ovr}
+        <div class="pc-pot ${potCol}">POT ${p.potential}</div>
+      </div>
+    </div>
+    ${SKILLS.map(s => skillBarHtml(s, p.skills[s])).join('')}
+    <hr class="div">
+    <div class="fc gap-16 fs-12 mono mt-8">
+      <span class="c-dim">SAL <span class="c-gold">${fmt(p.salary)}</span></span>
+      <span class="c-dim ml-a">VALEUR <span class="c-green">${fmt(p.marketValue)}</span></span>
+    </div>
+    <div class="fc gap-8 mt-8">
+      <span class="badge badge-${p.morale>=70?'green':'red'} fs-11">MORAL ${p.morale}%</span>
+      <span class="badge badge-${p.fatigue<50?'blue':'red'} fs-11 ml-a">FAT ${p.fatigue}%</span>
+    </div>
+    ${extraBtn}
+  </div>`;
+}
+
+function skillBarHtml(name, val) {
+  const col = val>=80?'var(--gold)':val>=65?'var(--blue)':val>=50?'var(--text)':'var(--red)';
+  return `<div class="sb">
+    <div class="sb-name">${name.substring(0,10)}</div>
+    <div class="sb-track"><div class="sb-fill" style="width:${val}%;background:${col}"></div></div>
+    <div class="sb-val">${val}</div>
+  </div>`;
+}
+
+// ──── PLAYER DETAIL MODAL ────
+function showPlayerDetail(id) {
+  const p = G.roster.find(x=>x.id===id) || marketPlayers.find(x=>x.id===id) || ERL_PROSPECTS.find(x=>x.name&&x.id===id);
+  if(!p) return;
+  const potCol = p.potential >= 90 ? 'c-gold' : p.potential >= 82 ? 'c-blue' : 'c-dim';
+  document.getElementById('player-modal-body').innerHTML = `
+    <div class="fc gap-16 mb-16">
+      <div class="pc-badge rb-${p.role}" style="width:64px;height:64px;font-size:24px">
+        <span class="r-${p.role} orb fw-7">${p.role[0]}</span>
+      </div>
+      <div>
+        <div class="orb fw-7 c-gold" style="font-size:20px">${p.name}</div>
+        <div class="r-${p.role} fs-13">${p.role} · ${p.nationality}</div>
+        <div class="fs-12 c-dim mono">${p.age} ans · Moral ${p.morale}%</div>
+      </div>
+      <div class="ml-a text-right">
+        <div class="orb fw-7 c-gold" style="font-size:44px;line-height:1">${p.ovr}</div>
+        <div class="mono fs-10 c-dim">OVERALL</div>
+        <div class="mono fs-12 ${potCol}">POT ${p.potential}</div>
+      </div>
+    </div>
+    <div class="mb-12 orb fs-11 c-gold" style="letter-spacing:2px">STATS (ACTUEL → POTENTIEL)</div>
+    ${SKILLS.map(s => {
+      const cap = Math.min(p.potential, p.skills[s] + rnd(5,12));
+      const col = p.skills[s]>=80?'var(--gold)':p.skills[s]>=65?'var(--blue)':'var(--text)';
+      return `<div class="sb" style="margin-bottom:10px">
+        <div class="sb-name" style="width:90px">${s}</div>
+        <div class="sb-track" style="height:8px"><div class="sb-fill" style="width:${p.skills[s]}%;background:${col}"></div></div>
+        <div class="sb-val">${p.skills[s]}</div>
+        <div class="mono fs-10 c-dim" style="margin-left:4px">→ ${cap}</div>
+      </div>`;
+    }).join('')}
+    <hr class="div">
+    <div class="g3 mt-12">
+      <div class="text-right" style="text-align:center"><div class="orb fs-13 c-gold">${fmt(p.salary)}</div><div class="mono fs-10 c-dim">SALAIRE/SEM</div></div>
+      <div style="text-align:center"><div class="orb fs-13 c-green">${fmt(p.marketValue)}</div><div class="mono fs-10 c-dim">VALEUR MARCHÉ</div></div>
+      <div style="text-align:center"><div class="orb fs-13 c-blue">${p.fatigue}%</div><div class="mono fs-10 c-dim">FATIGUE</div></div>
+    </div>
+  `;
+  document.getElementById('player-modal').classList.add('open');
+}
+
+// ──── TRAINING ────
+let trainPlan = {};
+function renderTraining() {
+  document.getElementById('tr-week').textContent = G.week;
+  document.getElementById('train-slots').innerHTML = G.roster.map(p => `
+    <div class="train-row">
+      <div class="f1">
+        <div class="fw-7 c-gold fs-13">${p.name}</div>
+        <div class="r-${p.role} fs-12">${p.role} · OVR ${p.ovr}</div>
+      </div>
+      <select class="train-sel" id="ts-${p.id}" onchange="trainPlan['${p.id}']=this.value">
+        ${SKILLS.map(s=>`<option value="${s}" ${(trainPlan[p.id]||SKILLS[0])===s?'selected':''}>${s}</option>`).join('')}
+      </select>
+    </div>
+  `).join('');
+}
+
+async function applyTraining() {
+  G.roster.forEach(p => {
+    const focus = document.getElementById('ts-'+p.id)?.value || 'Mécanique';
+    const gain = rnd(1,3);
+    if(p.skills[focus] < p.potential) {
+      p.skills[focus] = Math.min(p.potential, p.skills[focus] + gain);
+      p.ovr = Math.round(Object.values(p.skills).reduce((a,b)=>a+b,0)/SKILLS.length);
+      p.marketValue = Math.round(p.ovr * rnd(900,1100));
+    }
+    p.fatigue = Math.min(100, p.fatigue + rnd(5,15));
+    if(p.fatigue > 80) p.morale = Math.max(30, p.morale - 5);
+  });
+
+  const totalSalary = G.roster.reduce((a,p)=>a+p.salary,0);
+  G.budget -= totalSalary;
+  G.activeSponsors.forEach(sid => {
+    const sp = SPONSORS_DATA.find(s=>s.id===sid);
+    if(sp) G.budget += sp.pay;
+  });
+  G.week++;
+  G.ovr = calcOvr(G.roster);
+  simulateAILeague();
+  await saveGame();
+  renderAll();
+  notify(`Semaine ${G.week-1} terminée ! -${fmt(totalSalary)} salaires`, 's');
+}
+
+function simulateAILeague() {
+  if(!G.leagueSeason) return;
+  G.leagueSeason.schedule.forEach(m => {
+    if(m.played || m.home===G.clubName || m.away===G.clubName) return;
+    const hs = G.leagueSeason.standings.find(t=>t.name===m.home);
+    const as = G.leagueSeason.standings.find(t=>t.name===m.away);
+    if(!hs || !as) return;
+    const hw = rnd(hs.str-10, hs.str+10);
+    const aw = rnd(as.str-10, as.str+10);
+    m.played = true;
+    if(hw > aw) { hs.w++; hs.pts+=3; as.l++; }
+    else { as.w++; as.pts+=3; hs.l++; }
+  });
+  G.leagueSeason.standings.sort((a,b) => b.pts-a.pts);
+}
+
+// ──── SPONSORS ────
+function renderSponsors() {
+  const avail = document.getElementById('sponsors-avail');
+  avail.innerHTML = SPONSORS_DATA.filter(s=>!G.activeSponsors.includes(s.id)).map(s => {
+    const ok = s.check(G);
+    return `<div class="spcard">
+      <div class="fc gap-8 mb-8">
+        <span style="font-size:24px">${s.icon}</span>
+        <span class="orb fw-7 fs-13" style="color:${s.col}">${s.name}</span>
+      </div>
+      <div class="mono fs-11 c-dim mb-4">REQ: ${s.req}</div>
+      <div class="fs-13 c-green mb-12">${s.bonus} / semaine</div>
+      ${ok
+        ? `<button class="btn btn-green" onclick="signSponsor('${s.id}')">SIGNER →</button>`
+        : `<span class="badge badge-red fs-11">CONDITIONS NON REMPLIES</span>`
+      }
+    </div>`;
+  }).join('');
+
+  const act = document.getElementById('sponsors-active');
+  act.innerHTML = G.activeSponsors.length ? G.activeSponsors.map(sid => {
+    const s = SPONSORS_DATA.find(x=>x.id===sid);
+    return `<div class="fc gap-12 mb-8" style="padding:10px;border:1px solid rgba(16,200,112,0.3);background:rgba(16,200,112,0.03)">
+      <span style="color:${s.col}">${s.icon} <strong>${s.name}</strong></span>
+      <span class="c-green mono fs-12 ml-a">${s.bonus}</span>
+      <button class="btn btn-red" style="padding:3px 8px;font-size:9px" onclick="dropSponsor('${s.id}')">RÉSILIER</button>
+    </div>`;
+  }).join('') : '<p class="c-dim fs-13">Aucun sponsor actif.</p>';
+}
+
+async function signSponsor(id) {
+  if(G.activeSponsors.includes(id)) return;
+  G.activeSponsors.push(id);
+  const s = SPONSORS_DATA.find(x=>x.id===id);
+  notify(`Contrat signé avec ${s.name} !`, 's');
+  await saveGame();
+  renderSponsors();
+}
+
+async function dropSponsor(id) {
+  G.activeSponsors = G.activeSponsors.filter(x=>x!==id);
+  notify('Contrat résilié.', 'e');
+  await saveGame();
+  renderSponsors();
+}
+
+// ──── LEAGUE ────
+function renderLeague() {
+  if(!G.leagueSeason) return;
+  const st = G.leagueSeason.standings;
+  document.getElementById('league-table').innerHTML = st.map((t,i) => {
+    const me = t.isPlayer;
+    const posCol = i===0?'c-gold':i<3?'':'c-dim';
+    return `<div class="ct-row ${me?'me':''}">
+      <div class="ct-pos ${posCol}">${i+1}</div>
+      <div style="flex:1;font-weight:600;${me?'color:var(--gold)':''}">${me?'⭐ ':''}<span style="color:${t.color||'#888'}">${t.name}</span></div>
+      <div class="mono fs-12 c-dim">${t.w}W ${t.l}L</div>
+      <div class="orb fs-12 c-gold ml-a" style="padding-left:12px">${t.pts} pts</div>
+    </div>`;
+  }).join('');
+
+  const myM = G.leagueSeason.schedule.filter(m=>m.home===G.clubName||m.away===G.clubName).slice(0,8);
+  document.getElementById('league-cal').innerHTML = myM.map(m => {
+    const done = m.played || G.matchHistory.find(mh=>mh.homeTeam===m.home&&mh.awayTeam===m.away);
+    return `<div class="mc mb-4" style="opacity:${done?0.5:1}">
+      <div class="mc-team fs-12" style="color:${LEC_ROSTERS[m.home]?.color||'#B8A888'}">${m.home}</div>
+      <div class="mc-score fs-12 c-dim">VS</div>
+      <div class="mc-team right fs-12" style="color:${LEC_ROSTERS[m.away]?.color||'#B8A888'}">${m.away}</div>
+      <span class="mono fs-10 c-dim ml-a">${done?'✓':'À JOUER'}</span>
+    </div>`;
+  }).join('');
+}
+
+// ──── MATCHES ────
+function renderMatches() {
+  const myM = (G.leagueSeason?.schedule||[]).filter(m=>m.home===G.clubName||m.away===G.clubName);
+  document.getElementById('matches-list').innerHTML = myM.map(m => {
+    const hist = G.matchHistory.find(mh=>mh.homeTeam===m.home&&mh.awayTeam===m.away&&mh.type==='LEC');
+    if(hist) {
+      const myWon = (hist.homeTeam===G.clubName&&hist.homeScore>hist.awayScore)||(hist.awayTeam===G.clubName&&hist.awayScore>hist.homeScore);
+      return `<div class="mc mb-4">
+        <div class="mc-team" style="color:${LEC_ROSTERS[m.home]?.color||'#B8A888'}">${m.home}</div>
+        <div class="mc-score ${myWon?'c-green':'c-red'}">${hist.homeScore} — ${hist.awayScore}</div>
+        <div class="mc-team right" style="color:${LEC_ROSTERS[m.away]?.color||'#B8A888'}">${m.away}</div>
+        <span class="mc-badge ${myWon?'w':'l'} ml-a">${myWon?'VICTOIRE':'DÉFAITE'}</span>
+      </div>`;
+    }
+    return `<div class="mc mb-4">
+      <div class="mc-team" style="color:${LEC_ROSTERS[m.home]?.color||'#B8A888'}">${m.home}</div>
+      <div class="mc-score c-dim">VS</div>
+      <div class="mc-team right" style="color:${LEC_ROSTERS[m.away]?.color||'#B8A888'}">${m.away}</div>
+      <button class="btn btn-gold ml-a" onclick="playLECMatch('${m.home}','${m.away}')">JOUER ⚔️</button>
+    </div>`;
+  }).join('');
+}
+
+// ──── MATCH SIMULATION ────
+async function playLECMatch(home, away) {
+  const myOvr = G.ovr;
+  const isHome = home === G.clubName;
+  const oppName = isHome ? away : home;
+  const oppStr = LEC_ROSTERS[oppName]?.str || G.leagueSeason.standings.find(t=>t.name===oppName)?.str || 70;
+
+  simCallback = async (hs, as) => {
+    G.matchHistory.push({homeTeam:home,awayTeam:away,homeScore:hs,awayScore:as,type:'LEC'});
+    const ms = G.leagueSeason.schedule.find(m=>m.home===home&&m.away===away);
+    if(ms) ms.played = true;
+    const hst = G.leagueSeason.standings.find(t=>t.name===home);
+    const ast = G.leagueSeason.standings.find(t=>t.name===away);
+    if(hst&&ast) {
+      if(hs>as){hst.w++;hst.pts+=3;ast.l++;}
+      else{ast.w++;ast.pts+=3;hst.l++;}
+      G.leagueSeason.standings.sort((a,b)=>b.pts-a.pts);
+    }
+    const myWon=(isHome&&hs>as)||(!isHome&&as>hs);
+    if(myWon){G.wins++;G.popularity+=20;G.fans+=300;}
+    else{G.losses++;G.popularity=Math.max(0,G.popularity-5);G.fans=Math.max(0,G.fans-100);}
+    await saveGame();
+  };
+
+  runSim(home, away, myOvr, oppStr, G.roster);
+}
+
+async function playFriendlyMatch(oppUid, oppClub) {
+  let oppOvr = 70;
+  if(window._fb) {
+    try {
+      const { db, doc, getDoc } = window._fb;
+      const snap = await getDoc(doc(db, 'users', oppUid));
+      if(snap.exists()) oppOvr = calcOvr(snap.data().roster||[]);
+    } catch(e){}
+  } else {
+    const allUsers = JSON.parse(localStorage.getItem('lolmgr_users')||'{}');
+    const opp = allUsers[oppUid];
+    if(opp) oppOvr = calcOvr(opp.roster||[]);
+  }
+
+  const home = G.clubName, away = oppClub;
+  simCallback = async (hs, as) => {
+    G.matchHistory.push({homeTeam:home,awayTeam:away,homeScore:hs,awayScore:as,type:'AMICAL'});
+    const myWon = hs > as;
+    if(myWon){G.popularity+=50;G.fans+=500; notify('Victoire ! +500 fans, +50 popularité','s');}
+    else{G.popularity=Math.max(0,G.popularity-10); notify('Défaite en amical.','e');}
+    await saveGame();
+  };
+  runSim(home, away, G.ovr, oppOvr, G.roster);
+}
+
+function runSim(home, away, myOvr, oppStr, roster) {
+  const ov = document.getElementById('sim-ov');
+  document.getElementById('sth').textContent = home;
+  document.getElementById('sta').textContent = away;
+  document.getElementById('ssc').textContent = '0 — 0';
+  document.getElementById('stm').textContent = '00:00';
+  document.getElementById('slog').innerHTML = '';
+  document.getElementById('sim-close-btn').style.display = 'none';
+  ov.classList.add('open');
+
+  const isHome = home === G.clubName;
+  const hChance = (myOvr + 5) / (myOvr + oppStr + 5);
+  let hs = 0, as = 0, min = 0;
+  const logs = [];
+
+  const interval = setInterval(() => {
+    min += rnd(2,6); if(min > 35) min = 35;
+    const hEv = Math.random() < hChance;
+    const eTeam = hEv ? home : away;
+    const eP = roster[rnd(0,4)]?.name || 'Joueur';
+    const tpl = MATCH_EVENTS[rnd(0,MATCH_EVENTS.length-1)];
+    const txt = `[${String(min).padStart(2,'0')}:00] ${tpl.replace('{T}',eTeam).replace('{P}',eP)}`;
+    const isPenta = tpl.includes('PENTA');
+    const isBaron = tpl.includes('Baron') || tpl.includes('Inhibiteur');
+    if(isBaron) { if(hEv) hs++; else as++; }
+    logs.push({txt, cls: isPenta?'hi-gold':hEv?'hi-blue':''});
+    document.getElementById('ssc').textContent = `${hs} — ${as}`;
+    document.getElementById('stm').textContent = `${String(min).padStart(2,'0')}:00`;
+    document.getElementById('slog').innerHTML = logs.slice(-20).reverse().map(l=>`<div class="le ${l.cls}">${l.txt}</div>`).join('');
+    if(min >= 35) {
+      clearInterval(interval);
+      if(hs===as){if(Math.random()<hChance)hs++;else as++;}
+      document.getElementById('ssc').textContent = `${hs} — ${as}`;
+      document.getElementById('stm').textContent = '⚡ FIN';
+      logs.push({txt:`[FIN] 🏆 ${hs>as?home:away} remporte la partie ${hs}—${as} !`,cls:'hi-green'});
+      document.getElementById('slog').innerHTML = logs.slice(-20).reverse().map(l=>`<div class="le ${l.cls}">${l.txt}</div>`).join('');
+      document.getElementById('sim-close-btn').style.display = 'inline-block';
+      if(simCallback) simCallback(hs, as);
+      simCallback = null;
+    }
+  }, 380);
+}
+
+function closeSim() {
+  document.getElementById('sim-ov').classList.remove('open');
+  renderAll();
+}
+
+// ──── FRIENDLY ────
+async function renderFriendly() {
+  await fetchLadder();
+  const opponents = cachedLadder.filter(u => u.uid !== G.uid);
+  const el = document.getElementById('friendly-opponents');
+  if(!opponents.length) {
+    el.innerHTML = '<p class="c-dim fs-13">Aucun autre manager en ligne. Inscris-toi sur un 2ème compte pour tester !</p>';
+  } else {
+    el.innerHTML = `<div class="g2">${opponents.slice(0,6).map(u=>`
+      <div class="pcard">
+        <div class="orb fw-7 c-gold fs-13 mb-4">${u.clubName} <span class="c-dim fs-11">[${u.tag}]</span></div>
+        <div class="mono fs-12 c-dim mb-8">Manager: ${u.username}</div>
+        <div class="fc gap-6 mb-12">
+          <span class="badge badge-gold">OVR ${u.ovr||'?'}</span>
+          <span class="badge badge-blue">${u.wins}W ${u.losses||0}L</span>
+          <span class="badge badge-green">${(u.fans||0).toLocaleString()} fans</span>
+        </div>
+        <button class="btn btn-blue" onclick="playFriendlyMatch('${u.uid}','${u.clubName}')">DÉFIER ⚔️</button>
+      </div>
+    `).join('')}</div>`;
+  }
+
+  const hist = G.matchHistory.filter(m=>m.type==='AMICAL').reverse().slice(0,5);
+  document.getElementById('friendly-hist').innerHTML = hist.length
+    ? hist.map(m=>matchRowHtml(m)).join('')
+    : '<p class="c-dim fs-13">Aucun amical joué.</p>';
+}
+
+// ──── TRANSFER ────
+function buildMarket() {
+  if(marketPlayers.length > 0) return;
+  // Use real LEC players not in player's roster
+  const playerNames = G.roster.map(p=>p.name);
+  Object.entries(LEC_ROSTERS).forEach(([team, data]) => {
+    data.players.forEach(p => {
+      if(!playerNames.includes(p.name)) {
+        const obj = buildPlayerObj(p);
+        obj.teamBadge = team;
+        obj.league = 'LEC';
+        marketPlayers.push(obj);
+      }
+    });
+  });
+}
+
+function renderTransfer() {
+  buildMarket();
+  const el = document.getElementById('market-buy');
+  el.innerHTML = marketPlayers.slice(0,15).map(p => `
+    <div class="tcard" onclick="showPlayerDetail('${p.id}')">
+      <div class="fc gap-8 mb-8">
+        <div class="pc-badge rb-${p.role}" style="width:34px;height:34px;font-size:12px">
+          <span class="r-${p.role} orb fw-7">${p.role[0]}</span>
+        </div>
+        <div>
+          <div class="orb fw-7 c-gold fs-12">${p.name}</div>
+          <div class="r-${p.role} fs-11">${p.role} · ${p.teamBadge||'LEC'} · OVR ${p.ovr}</div>
+        </div>
+        <div class="ml-a c-green orb fs-13">${fmt(p.marketValue)}</div>
+      </div>
+      ${SKILLS.slice(0,3).map(s=>skillBarHtml(s,p.skills[s])).join('')}
+      <button class="btn btn-green mt-8" style="width:100%" onclick="event.stopPropagation();buyPlayer('${p.id}',${p.marketValue})">ACHETER</button>
+    </div>
+  `).join('');
+
+  const sel = document.getElementById('market-sell');
+  sel.innerHTML = G.roster.map(p => `
+    <div class="tcard">
+      <div class="fc gap-8 mb-8">
+        <div class="pc-badge rb-${p.role}" style="width:34px;height:34px;font-size:12px">
+          <span class="r-${p.role} orb fw-7">${p.role[0]}</span>
+        </div>
+        <div>
+          <div class="orb fw-7 c-gold fs-12">${p.name}</div>
+          <div class="r-${p.role} fs-11">${p.role} · OVR ${p.ovr}</div>
+        </div>
+        <div class="ml-a c-green orb fs-13">${fmt(Math.round(p.marketValue*.85))}</div>
+      </div>
+      <button class="btn btn-red" style="width:100%" onclick="sellPlayer('${p.id}')">VENDRE (85%)</button>
+    </div>
+  `).join('');
+}
+
+async function buyPlayer(id, price) {
+  const p = marketPlayers.find(x=>x.id===id);
+  if(!p) return notify('Joueur introuvable','e');
+  if(G.budget < price) return notify('Budget insuffisant !','e');
+  const idx = G.roster.findIndex(x=>x.role===p.role);
+  if(idx === -1) return notify('Rôle inconnu','e');
+  const old = G.roster[idx];
+  if(!confirm(`Remplacer ${old.name} (OVR ${old.ovr}) par ${p.name} (OVR ${p.ovr}) pour ${fmt(price)} ?`)) return;
+  G.budget -= price;
+  G.budget += Math.round(old.marketValue*.85);
+  marketPlayers.unshift(old);
+  marketPlayers = marketPlayers.filter(x=>x.id!==id);
+  old.teamBadge = G.clubName; old.league = 'LEC';
+  G.roster[idx] = p;
+  G.ovr = calcOvr(G.roster);
+  await saveGame();
+  updateTopBar();
+  renderRoster();
+  renderTransfer();
+  notify(`${p.name} rejoint le roster !`, 's');
+}
+
+async function sellPlayer(id) {
+  const idx = G.roster.findIndex(x=>x.id===id);
+  if(idx===-1) return;
+  const p = G.roster[idx];
+  const gain = Math.round(p.marketValue*.85);
+  if(!confirm(`Vendre ${p.name} pour ${fmt(gain)} ?`)) return;
+  // Replace with a random ERL prospect
+  const prospects = ERL_PROSPECTS.filter(x=>x.role===p.role);
+  const newP = prospects.length ? buildPlayerObj(rndArr(prospects)) : buildPlayerObj({name:'Recrue',role:p.role,nationality:'🇪🇺 EU',age:19,ovr:60,pot:80});
+  G.budget += gain;
+  marketPlayers.unshift(p);
+  p.teamBadge = G.clubName; p.league = 'LEC';
+  G.roster[idx] = newP;
+  G.ovr = calcOvr(G.roster);
+  await saveGame();
+  updateTopBar();
+  renderRoster();
+  renderTransfer();
+  notify(`${p.name} vendu ! ${newP.name} rejoint le roster.`, 's');
+}
+
+// ──── SCOUTING ERL ────
+function renderScouting() {
+  document.getElementById('scout-list').innerHTML = ERL_PROSPECTS.map(p => {
+    const pObj = {...p, id: p.name+p.league, skills: genSkillsFromOvr(p.ovr), morale: 85, fatigue: 0};
+    const potCol = p.pot >= 88 ? 'c-gold' : p.pot >= 84 ? 'c-blue' : 'c-dim';
+    return `<div class="scout-card">
+      <div class="fc gap-8 mb-8">
+        <div class="pc-badge rb-${p.role}" style="width:36px;height:36px;font-size:12px">
+          <span class="r-${p.role} orb fw-7">${p.role[0]}</span>
+        </div>
+        <div class="f1">
+          <div class="orb fw-7 c-gold fs-12">${p.name}</div>
+          <div class="r-${p.role} fs-11">${p.role}</div>
+        </div>
+      </div>
+      <div class="fc gap-6 mb-8 flex-wrap">
+        <span class="sc-tag">${p.league}</span>
+        <span class="badge badge-blue fs-11">${p.team}</span>
+        <span class="mono fs-11 c-dim">${p.nationality} · ${p.age} ans</span>
+      </div>
+      <div class="fc mb-8">
+        <div class="orb fw-7 c-gold fs-18">${p.ovr}</div>
+        <div class="ml-a orb fs-12 ${potCol}">POT ${p.pot}</div>
+      </div>
+      <div class="prog mb-8"><div class="prog-fill" style="width:${p.ovr}%;background:var(--purple)"></div></div>
+      <div class="mono fs-11 c-dim mb-8">SAL <span class="c-gold">${fmt(p.salary)}</span> · VALEUR <span class="c-green">${fmt(p.marketValue)}</span></div>
+      <button class="btn btn-purple" style="width:100%;border-color:rgba(136,88,248,.4);color:var(--purple)" onclick="scoutBuy('${p.name}','${p.league}',${p.marketValue})">RECRUTER (ERL)</button>
+    </div>`;
+  }).join('');
+}
+
+function genSkillsFromOvr(ovr) {
+  const skills = {};
+  SKILLS.forEach(s => { skills[s] = rnd(Math.max(35, ovr-15), Math.min(99, ovr+12)); });
+  return skills;
+}
+
+async function scoutBuy(name, league, price) {
+  const prospect = ERL_PROSPECTS.find(x=>x.name===name&&x.league===league);
+  if(!prospect) return;
+  if(G.budget < price) return notify('Budget insuffisant !','e');
+  const idx = G.roster.findIndex(x=>x.role===prospect.role);
+  if(idx===-1) return notify('Rôle introuvable','e');
+  const old = G.roster[idx];
+  if(!confirm(`Signer ${name} (OVR ${prospect.ovr}, POT ${prospect.pot}) depuis ${league} pour ${fmt(price)} ?\nRemplace: ${old.name}`)) return;
+  G.budget -= price;
+  G.budget += Math.round(old.marketValue*.85);
+  const newP = buildPlayerObj({...prospect, ovr:prospect.ovr, pot:prospect.pot});
+  G.roster[idx] = newP;
+  G.ovr = calcOvr(G.roster);
+  await saveGame();
+  updateTopBar();
+  renderRoster();
+  notify(`${name} recruté depuis ${league} ! 🌟`, 's');
+}
+
+// ──── LADDER ────
+function renderLadder() {
+  const el = document.getElementById('ladder-body');
+  if(!cachedLadder.length) { el.innerHTML = '<div class="panel-body c-dim fs-13">Chargement...</div>'; return; }
+  const header = `<div class="ld-row" style="border-bottom:2px solid var(--border-hi)">
+    <div style="width:32px;font-family:'Share Tech Mono';font-size:9px;color:var(--text3)">POS</div>
+    <div style="flex:1;font-family:'Share Tech Mono';font-size:9px;color:var(--text3)">MANAGER / CLUB</div>
+    <div style="font-family:'Share Tech Mono';font-size:9px;color:var(--text3);min-width:60px">W/L</div>
+    <div style="font-family:'Share Tech Mono';font-size:9px;color:var(--text3);min-width:70px">FANS</div>
+    <div style="font-family:'Share Tech Mono';font-size:9px;color:var(--text3)">SCORE</div>
+  </div>`;
+  el.innerHTML = header + cachedLadder.map((u,i) => {
+    const me = u.uid === G.uid;
+    const rank = i+1;
+    const rankCol = rank===1?'c-gold':rank<=3?'':'c-dim';
+    const medal = rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':'';
+    return `<div class="ld-row ${me?'ld-me':''}">
+      <div class="ld-rank ${rankCol}">${medal||rank}</div>
+      <div style="flex:1">
+        <div style="font-weight:700;${me?'color:var(--gold)':''}">${me?'⭐ ':''}<span style="font-size:14px">${u.clubName}</span> <span class="mono fs-10 c-dim">[${u.tag}]</span></div>
+        <div class="mono fs-11 c-dim">${u.username}</div>
+      </div>
+      <div class="mono fs-12 c-dim" style="min-width:60px">${u.wins}W ${u.losses||0}L</div>
+      <div class="mono fs-12 c-blue" style="min-width:70px">${(u.fans||0).toLocaleString()}</div>
+      <div class="orb fw-7 c-gold">${u.score} pts</div>
+    </div>`;
+  }).join('');
+}
+
+// ──── UTILS ────
+function fmt(n) {
+  if(n>=1000000) return (n/1000000).toFixed(1)+'M€';
+  if(n>=1000) return Math.round(n/1000)+'K€';
+  return n+'€';
+}
+
+function notify(msg, type='') {
+  const el = document.createElement('div');
+  el.className = `notif ${type}`;
+  el.textContent = msg;
+  document.getElementById('notifs').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function showFirebaseGuide() {
+  document.getElementById('fb-guide-modal').classList.add('open');
+}
+
+// Click outside modal to close
+document.addEventListener('click', e => {
+  document.querySelectorAll('.modal-ov.open').forEach(m => {
+    if(e.target === m) m.classList.remove('open');
+  });
+});
+</script>
+</body>
+</html>
